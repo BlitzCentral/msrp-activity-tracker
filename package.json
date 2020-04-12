@@ -1,0 +1,15 @@
+{
+  "name": "msrp-wcso",
+  "version": "2.0.0",
+  "description": "A WCSO activity tracker BOT",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Michael M.",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^12.1.1",
+    "mysql": "^2.18.1"
+  }
+}
