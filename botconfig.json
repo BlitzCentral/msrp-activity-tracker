@@ -1,20 +1,19 @@
 {
-    "token": "Njk2NDgyNzc1MDk1NzA1NjEw.Xo3liA.YP9j5Efn7BOEUGxyJbsadozp5Zs",
+    "token": "",
     "prefix": ".",
 
     "dbHost" : "localhost",
-    "dbUser" : "root",
-    "dbPass" : "Ballaam68*",
-    "database" : "dev",
+    "dbUser" : "",
+    "dbPass" : "",
+    "database" : "",
 
-    "role": "698113292069240875",
-    "timeChannel": "698113098019504138",
-    "logChannel" : "698113114117242900",
-    "botCommandsChannel" : "698113114117242900",
-    "serverID" : "698112768506593301",
+    "role": "",
+    "timeChannel": "",
+    "logChannel" : "",
+    "botCommandsChannel" : "",
 
-    "departmentTitle" : "Dev Activity Tracker",
+    "departmentTitle" : "WCSO Activity Tracker",
     "departmentColour" : "#003b6f",
     "departmentURL" : "https://michiganstateroleplay.com/",
-    "departmentLogo" : "https://i.imgur.com/OqXKCdR.jpg"
+    "departmentLogo" : "https://i.imgur.com/HqfoVIM.png"
 }

@@ -28,8 +28,10 @@ bot.on('message', async message => {
     if (!message.content.startsWith(prefix)) return;
 
     switch(cmd) {
+        case `${prefix}ONDUTY`:
         case `${prefix}onduty`:
         case `${prefix}clockin`:
+        case `${prefix}CLOCKIN`:
             if (ChannelID === config.timeChannel) {
                 if (message.member.roles.cache.has(config.role)) {
                     reply(message, 'use .offduty / .clockout to end your service');
@@ -47,8 +49,10 @@ bot.on('message', async message => {
                 reply(message, `you can not run this command in this channel, please use <#` + config.timeChannel + `>`);
             }
             break;
+        case `${prefix}OFFDUTY`:
         case `${prefix}offduty`:
         case `${prefix}clockout`:
+        case `${prefix}CLOCKOUT`:
             if (ChannelID === config.timeChannel) {
                 if (!message.member.roles.cache.has(config.role)) {
                     reply(message, 'use .onduty / .clockin to end your service');
@@ -75,7 +79,7 @@ bot.on('message', async message => {
                       setTimeSQL(taggedUser.id, 0)
                       timeCMD(message, 0, taggedUser)
                     } else {
-                        getTimeSQL(taggedUser.id).then(time => { 
+                        getTimeSQL(message, taggedUser.id).then(time => { 
                             timeCMD(message, time, taggedUser)
                         });
                     }
@@ -91,7 +95,7 @@ bot.on('message', async message => {
                     cleanUp(message);
                     reply(message, 'you must define a user to get their time')
                     return;
-                } if (!isInt(messageArray[2])) {
+                } else if (!isInt(messageArray[2])) {
                     cleanUp(message);
                     console.log(messageArray[2]);
                     reply(message, 'please provide a time');
@@ -139,10 +143,14 @@ bot.on('message', async message => {
         case `${prefix}toptimes`:
         case `${prefix}toptime`:
             if (ChannelID === config.botCommandsChannel) {
-                if (!isInt(messageArray[1])) {
+                if (messageArray[1] === undefined) {
                     cleanUp(message);
-                    reply(message, 'please provide an amount');
-                } if (messageArray[1] > 30) {
+                    reply(message, 'you must provide an amount')
+                } else if (!isInt(messageArray[1])) {
+                    console.log(messageArray[1]);
+                    cleanUp(message);
+                    reply(message, 'amount must be a number');
+                } else if (messageArray[1] > 30) {
                     cleanUp(message);
                     reply(message, 'amount must be 30 or below');
                 } else {
@@ -188,7 +196,7 @@ bot.on('message', async message => {
                     let taggedUser = message.mentions.members.first();
                     inDB(taggedUser.id).then((inDB) => {
                         if (!inDB) {
-                            reply(message, 'member has no time on record');
+                            reply(message, 'member not found in DB');
                             return
                         } else {
                             deleteUserCMD(message, taggedUser);
@@ -203,24 +211,26 @@ bot.on('message', async message => {
     }
 });
 
-function deleteUserCMD(message, taggedUser) {
+function alertUser(message, string, user){
+    const alertUserMSG = new Discord.MessageEmbed()
+        .setColor(config.departmentColour)
+        .setTitle(config.departmentTitle)
+        .setURL(config.departmentURL)
+        .setAuthor('Michigan State Roleplay', config.departmentLogo)
+        .setDescription(string)
+        .addFields(
+            { name: 'Time/Date', value: message.createdAt, inline: true },
+        )
+        .addField('Run-By', '<@' + message.author.id + '>')
+        .addField('Attention', 'You are obligated to alert your command if you did not request this action.')
+        .setTimestamp()
+        .setFooter('Michigan State Roleplay', config.departmentLogo);
+
+    user.send(alertUserMSG);
+
+} function deleteUserCMD(message, taggedUser) {
 
     deleteUserSQL(taggedUser.id);
-
-    const deleteUserDM = new Discord.MessageEmbed()
-    .setColor(config.departmentColour)
-    .setTitle(config.departmentTitle)
-    .setURL(config.departmentURL)
-    .setAuthor('Michigan State Roleplay', config.departmentLogo)
-    .setDescription('Time Deleted')
-    .addFields(
-        { name: 'Officer', value: `<@${taggedUser.id}>`, inline: true },
-        { name: 'Time/Date', value: message.createdAt, inline: true },
-    )
-    .addField('Run-By', '<@' + message.author.id + '>')
-    .addField('Attention', 'If you believe this was done by mistake please contact a member of command.')
-    .setTimestamp()
-    .setFooter('Michigan State Roleplay', config.departmentLogo);
 
     const deleteUserMSG = new Discord.MessageEmbed()
         .setColor(config.departmentColour)
@@ -237,11 +247,15 @@ function deleteUserCMD(message, taggedUser) {
         .setFooter('Michigan State Roleplay', config.departmentLogo);
     
     message.channel.send(deleteUserMSG);
-    taggedUser.send(deleteUserDM);
-
+    alertUser(message, 'Data Deleted', taggedUser);
 
 } function removeTimeCMD(message, taggedUser, addTime) {
-    getTimeSQL(taggedUser.id).then(time => {
+    getTimeSQL(message, taggedUser.id).then(time => {
+        if (time - addTime < 0) {
+            cleanUp(message); 
+            reply(message, `you can not put members into minus time, to delete a user try .deleteuser <@${taggedUser.id}>`);
+            return
+        }
         let total = parseInt(time) - parseInt(addTime);
         cleanUp(message); 
         updateTimeSQL(taggedUser.id, total);
@@ -261,6 +275,7 @@ function deleteUserCMD(message, taggedUser) {
         .setFooter('Michigan State Roleplay', config.departmentLogo);
     
         message.channel.send(removeTimeMSG);
+        alertUser(message, 'Time Removed', taggedUser);
     }).catch(console.log);
 } function topTimeCMD(message, int) {
     con.query('SELECT id,time FROM time ORDER BY time DESC LIMIT ' + int, (err, rows) => {
@@ -272,6 +287,8 @@ function deleteUserCMD(message, taggedUser) {
             let time = secondsToHmsLite(row.time);
             leaders += `<@${id}> - ${time}\n`;
         });
+
+        if (!leaders) {return reply(message, 'no data to display at this time');}
 
         const topTimeMSG = new Discord.MessageEmbed()
         .setColor(config.departmentColour)
@@ -290,7 +307,7 @@ function deleteUserCMD(message, taggedUser) {
     });
 
 } function addTimeCMD(message, taggedUser, addTime) {
-    getTimeSQL(taggedUser.id).then(time => {
+    getTimeSQL(message, taggedUser.id).then(time => {
         let total = parseInt(time) + parseInt(addTime);
         cleanUp(message); 
         updateTimeSQL(taggedUser.id, total);
@@ -310,8 +327,14 @@ function deleteUserCMD(message, taggedUser) {
         .setFooter('Michigan State Roleplay', config.departmentLogo);
     
         message.channel.send(addTimeCMD);
+        alertUser(message, 'Time Added', taggedUser);
     }).catch(console.log);
 } function setTimeCMD(message, taggedUser, time) {
+    if (time < 0) {
+        cleanUp(message); 
+        reply(message, `you can not put members into minus time, to delete a user try .deleteuser <@${taggedUser.id}>`);
+        return
+    }
     cleanUp(message); 
     const timeCMD = new Discord.MessageEmbed()
     .setColor(config.departmentColour)
@@ -329,6 +352,7 @@ function deleteUserCMD(message, taggedUser) {
     .setFooter('Michigan State Roleplay', config.departmentLogo);
 
     message.channel.send(timeCMD);
+    alertUser(message, 'Time Set', taggedUser);
 
 } function timeCMD(message, time, taggedUser) {
     const timeCMD = new Discord.MessageEmbed()
@@ -364,9 +388,28 @@ function deleteUserCMD(message, taggedUser) {
     message.member.roles.add(config.role);
 
 } function offDuty(message) {
+    if (!bot.onDutyTime.get(message.author.id)) {
+        message.member.roles.remove(config.role);
+        const errorMSG = new Discord.MessageEmbed()
+            .setColor(config.departmentColour)
+            .setTitle(config.departmentTitle)
+            .setURL(config.departmentURL)
+            .setAuthor('Michigan State Roleplay', config.departmentLogo)
+            .setDescription('Error')
+            .addFields(
+                { name: 'Officer', value: `<@${message.member.id}>`, inline: true },
+                { name: 'Time/Date', value: message.createdAt, inline: true },
+            )
+            .addField('Attention', 'Please notify a member of command with your patrol time')
+            .setTimestamp()
+            .setFooter('Michigan State Roleplay', config.departmentLogo);
+        message.channel.send(errorMSG);
+        return
+    }
+
     bot.offDutyTime.set(message.author.id, Date.now());
     let timeOnDuty = (bot.offDutyTime.get(message.author.id) - bot.onDutyTime.get(message.author.id)) / 1000;
-    getTimeSQL(message.author.id).then(time => {
+    getTimeSQL(message, message.author.id).then(time => {
         const offDutyMSG = new Discord.MessageEmbed()
         .setColor(config.departmentColour)
         .setTitle(config.departmentTitle)
@@ -407,13 +450,19 @@ function deleteUserCMD(message, taggedUser) {
     updateTimeSQL(message.author.id, time + timeOnDuty)
 }
 
-function getTimeSQL(id) {
+function getTimeSQL(message, id) {
     return new Promise(async (resolve, reject) => {
       await con.query(`SELECT * FROM time WHERE id = '${id}'`, (err, rows) => {
         if (err) return reject(err);
   
+        if (!rows[0]) {
+            cleanUp(message);
+            reply(message, 'user could not be found in database');
+            return
+        }
+
         let time = rows[0].time;
-  
+
         return resolve(time);
       });
     });
@@ -434,7 +483,6 @@ function getTimeSQL(id) {
 } function dbConnect() {
     con.getConnection(function(error, tempCont) {
         if (!!error) {
-            tempCont.release();
             console.log('Error conecting to DB');
             return
         } else {
@@ -483,7 +531,7 @@ function secondsToHmsLite(d) {
 } function reply(message, msg) {message.reply(msg).then( msg => {msg.delete({ timeout: 5000 })});}
 
 bot.on("ready", async () => {
-    console.log("MSRP-Bot Version: 2.0")
+    console.log("MSRP-Bot Version: 2.1.1")
     bot.user.setPresence({
         status: 'dnd',
         activity: {
